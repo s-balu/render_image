@@ -15,11 +15,11 @@ OPT += -DENABLE_OPENMP
 OPT += -DKERNEL_SMOOTHING
 #OPT += -DSMOOTH_GRID=512
 
-COMPILE_ON_SYSTEM="MacBook"
+# COMPILE_ON_SYSTEM="MacBook"
 #COMPILE_ON_SYSTEM="MacPro"
 #COMPILE_ON_SYSTEM="OzSTAR"
 #COMPILE_ON_SYSTEM="Setonix"
-#COMPILE_ON_SYSTEM="Naranjo"
+COMPILE_ON_SYSTEM="Naranjo"
 
 ifeq ($(COMPILE_ON_SYSTEM),"Setonix")
 CC=cc -fopenmp
@@ -104,13 +104,13 @@ SRCS = src/core/render_image.c \
        src/parallel/split_across_tasks.c \
        src/parallel/header.c
 
-OPTS = -lm $(OPT) $(PNG_OPTS) $(HDF5_OPTS)
+OPTS = $(OPT) $(PNG_OPTS) $(HDF5_OPTS)
 
 render_image : $(SRCS)
 	$(CC) -o render_image -ffast-math -O3 $(OPTS) \
 	    -I$(HDF5_INCL) -I$(PNG_INCL) $(INCL) \
 	    $(SRCS) \
-	    -L$(HDF5_LIBS) $(HDF5_OPTS) -L$(PNG_LIBS) $(PNG_OPTS)
+	    -L$(HDF5_LIBS) $(HDF5_OPTS) -L$(PNG_LIBS) $(PNG_OPTS) -lm
 
 clean:
 	rm -f render_image
