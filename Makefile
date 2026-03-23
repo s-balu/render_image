@@ -106,12 +106,16 @@ SRCS = src/core/render_image.c \
 
 OPTS = -lm $(OPT) $(PNG_OPTS) $(HDF5_OPTS)
 
-render_image : $(SRCS)
-	$(CC) -o render_image -ffast-math -O3 $(OPTS) \
-	    -I$(HDF5_INCL) -I$(PNG_INCL) $(INCL) \
-	    $(SRCS) \
-	    -L$(HDF5_LIBS) $(HDF5_OPTS) -L$(PNG_LIBS) $(PNG_OPTS)
+OBJS = $(SRCS:.c=.o)
+
+DEPS = $(OBJS:.o=.d)
+-include $(DEPS)
+
+render_image : $(OBJS)
+	$(CC) -o $@ $(OBJS) -L$(HDF5_LIBS) $(HDF5_OPTS) -L$(PNG_LIBS) $(PNG_OPTS) -lm
+
+%.o : %.c
+	$(CC) -c -ffast-math -O3 $(OPTS) -I$(HDF5_INCL) -I$(PNG_INCL) $(INCL) -MMD -MP -o $@ $<
 
 clean:
-	rm -f render_image
-	touch Makefile
+	rm -f render_image $(OBJS)
