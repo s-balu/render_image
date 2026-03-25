@@ -689,8 +689,8 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
                                lx_start, strip_y0, strip_y1,
                                strip_y0, this_strip_h, strip_grid);
 #endif
-            fprintf(stdout,"lx_start=%d lw=%d width=%d\n", lx_start, lw, width);
-            fflush(stdout);
+
+            
             /* Project this strip's 3D grid into the 2D output image.
              * project_strip_offset writes only to rows [strip_y0, strip_y1). */
             for (int iz = 0; iz < depth; iz++) {

@@ -296,8 +296,6 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
     char filename[256], groupname[64];
     float *dummy;
     
-    long long base_nthistask = *NThisTask;
-    
     /* Per-file npart: size up to MAX_TYPE_PROBE */
     int tmp_npart[MAX_TYPE_PROBE];
 
@@ -327,6 +325,8 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
         /* Loop over every type slot reported by the header */
         for (i = 0; i < num_types_in_file; i++) {
             if (tmp_npart[i] <= 0) continue;
+
+            long long base_nthistask = *NThisTask;
 
             hsize_t start = (tmp_npart[i] * ThisTask) / NTask;
             hsize_t end   = (tmp_npart[i] * (ThisTask + 1)) / NTask;

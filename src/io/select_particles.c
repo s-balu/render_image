@@ -30,7 +30,6 @@ void select_particles(float *x, float *y, float *z, int *ptype,
 
     *NumPartKeep = 0;
     
-    fprintf(stdout, "NumPart: %llu\n", NumPart);
     fflush(stdout);
 
     for (i = 0; i < NumPart; i++) {

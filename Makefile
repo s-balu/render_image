@@ -1,7 +1,7 @@
 OPT += -DCIC
-OPT += -DCIC_STRIP_HEIGHT=0 
-OPT += -DIMAGE_DIMENSIONX=2048
-OPT += -DIMAGE_DIMENSIONY=2048
+OPT += -DCIC_STRIP_HEIGHT=32
+OPT += -DIMAGE_DIMENSIONX=1024
+OPT += -DIMAGE_DIMENSIONY=1024
 #OPT += -DMAX_H_VOXELS=8
 OPT += -DMAX_H_DEPOSIT_PX=32
 OPT += -DMIN_RHO_FRAC=1.05
@@ -9,7 +9,7 @@ OPT += -DMIN_RHO_FRAC=1.05
 #OPT += -DVELOCITIES
 #OPT += -DIMAGE
 #OPT += -DDEBUG
-#OPT += -DENABLE_OPENMP
+OPT += -DENABLE_OPENMP
 #OPT += -DENABLE_MPI
 #OPT += -DSCATTER_DECOMPOSITION
 #OPT += -DNONPERIODIC
@@ -109,8 +109,8 @@ OPTS = -lm $(OPT) $(PNG_OPTS) $(HDF5_OPTS)
 
 OBJS = $(SRCS:.c=.o)
 
-#DEPS = $(OBJS:.o=.d)
-#-include $(DEPS)
+DEPS = $(OBJS:.o=.d)
+-include $(DEPS)
 
 render_image : $(OBJS)
 	$(CC) -o $@ $(OBJS) -L$(HDF5_LIBS) $(HDF5_OPTS) -L$(PNG_LIBS) $(PNG_OPTS) -lm
@@ -119,4 +119,4 @@ render_image : $(OBJS)
 	$(CC) -c -ffast-math -O3 $(OPTS) -I$(HDF5_INCL) -I$(PNG_INCL) $(INCL) -MMD -MP -o $@ $<
 
 clean:
-	rm -f render_image $(OBJS)
+	rm -f render_image $(OBJS) $(DEPS)

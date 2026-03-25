@@ -5,14 +5,14 @@ get_snap_dt.py — compute the snap_dt parameter for render_image velocity inter
 snap_dt is the time interval between two snapshots in units of
 (simulation length unit) / (simulation velocity unit).
 
-For Gadget-2/4 HDF5 snapshots:
+For Gadget-2/4, AREPO, and SWIFT HDF5 snapshots:
   - Positions are in comoving Mpc/h
   - Velocities are peculiar velocities with a sqrt(a) factor:
       v_stored = sqrt(a) * dx/dt   [km/s]
     The physical peculiar velocity is v_pec = v_stored / sqrt(a).
 
   - To convert stored velocity to comoving displacement per unit snap_dt:
-      Δx_comoving = v_stored * snap_dt / a
+      dx_comoving = v_stored * snap_dt / a
     where snap_dt has units of (Mpc/h) / (km/s).
 
 Usage
@@ -102,22 +102,35 @@ def snap_dt_gadget(a1, a2, H0, Omega_m, Omega_L, h_little, n_steps=10000):
     return snap_dt, dt_gyr
 
 
-def read_hdf5_params(filename):
-    """Read a, H0, Omega_m, Omega_L, h from a Gadget HDF5 snapshot header."""
+def read_hdf5_params(filename, convention='GADGET4'):
+    """Read a, H0, Omega_m, Omega_L, h from an HDF5 snapshot header."""
     try:
         import h5py
     except ImportError:
         sys.exit("h5py not installed. Run: pip install h5py")
-
+    
     with h5py.File(filename, "r") as f:
-        hdr = f["Header"].attrs
-        a       = float(hdr["Time"])
-        H0      = float(hdr["HubbleParam"]) * 100.0   # HubbleParam = h → H0 = 100h
-        h       = float(hdr["HubbleParam"])
-        Omega_m = float(hdr["Omega0"])
-        Omega_L = float(hdr["OmegaLambda"])
+        if convention == 'SWIFT':
+            a = f['Header'].attrs['Scale-factor'] 
+            H0 = f['Cosmology'].attrs['H0 [internal units]']
+            h = f['Cosmology'].attrs['h'] 
+            omega_bar   = f['Cosmology'].attrs['Omega_b']
+            omega_dm    = f['Cosmology'].attrs['Omega_cdm']
+            Omega_m    = omega_bar + omega_dm
+            Omega_L    = f['Cosmology'].attrs['Omega_lambda'] 
+        elif convention in ['GADGET4', 'AREPO']:
+            a = f['Header'].attrs['Time'] 
+            H0 = f['Parameters'].attrs['HubbleParam'] * 100.0
+            h = f['Parameters'].attrs['HubbleParam'] 
+            Omega_m = f['Parameters'].attrs['Omega0'] 
+            Omega_L = f['Parameters'].attrs['OmegaLambda']
+        else:
+            a = f['Header'].attrs['Time'] 
+            H0 = f['Header'].attrs['HubbleParam'] * 100.0
+            h = f['Header'].attrs['HubbleParam'] 
+            Omega_m = f['Header'].attrs['Omega0'] 
+            Omega_L = f['Header'].attrs['OmegaLambda']
     return a, H0, Omega_m, Omega_L, h
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -131,7 +144,9 @@ def main():
                         help="First snapshot (reads a, cosmology from header)")
     parser.add_argument("--hdf5_next", metavar="FILE",
                         help="Second snapshot (reads a from header)")
-
+    parser.add_argument("--hdf5_convention", choices=['GADGET4', 'AREPO', 'SWIFT'], default='GADGET4',
+                        help="HDF5 convention for reading parameters (default: GADGET4)")
+    
     # Manual cosmology
     parser.add_argument("--snap_a1",  type=float, help="Scale factor of snapshot 1")
     parser.add_argument("--snap_a2",  type=float, help="Scale factor of snapshot 2")
@@ -154,12 +169,13 @@ def main():
 
     # ── Resolve parameters ────────────────────────────────────────────────────
     if args.hdf5:
-        a1, H0, Omega_m, Omega_L, h = read_hdf5_params(args.hdf5)
-        print(f"Read from {args.hdf5}: a={a1:.5f}  H0={H0:.2f}  "
-              f"Omega_m={Omega_m:.4f}  Omega_L={Omega_L:.4f}  h={h:.4f}")
+        print(args.hdf5_convention + " convention: reading parameters from HDF5 headers...")
+        a1, H0, Omega_m, Omega_L, h = read_hdf5_params(args.hdf5, convention=args.hdf5_convention)
+        print(f"Read from {args.hdf5}: a={a1.item():.5f}  H0={H0.item():.02f}  "
+              f"Omega_m={Omega_m.item():.4f}  Omega_L={Omega_L.item():.4f}  h={h.item():.4f}")
         if args.hdf5_next:
-            a2, *_ = read_hdf5_params(args.hdf5_next)
-            print(f"Read from {args.hdf5_next}: a={a2:.5f}")
+            a2, *_ = read_hdf5_params(args.hdf5_next, convention=args.hdf5_convention)
+            print(f"Read from {args.hdf5_next}: a={a2.item():.5f}")
         else:
             sys.exit("--hdf5_next required when --hdf5 is given")
     else:
@@ -184,13 +200,13 @@ def main():
 
     print()
     print("=" * 60)
-    print(f"  Snapshot interval:  a = {a1:.5f} → {a2:.5f}")
-    print(f"                      z = {z1:.4f} → {z2:.4f}")
-    print(f"  Physical dt       = {dt_gyr:.4f} Gyr")
-    print(f"  snap_dt           = {snap_dt:.6g}  (Mpc/h) / (km/s)")
+    print(f"  Snapshot interval:  a = {a1.item():.5f} to {a2.item():.5f}")
+    print(f"                      z = {z1.item():.4f} to {z2.item():.4f}")
+    print(f"  Physical dt       = {dt_gyr.item():.4f} Gyr")
+    print(f"  snap_dt           = {snap_dt.item():.6g}  (Mpc/h) / (km/s)")
     print()
     print("  Pass to render_image:")
-    print(f"    -snap_dt {snap_dt:.6g}")
+    print(f"    -snap_dt {snap_dt.item():.6g}")
     print("=" * 60)
     print()
 
