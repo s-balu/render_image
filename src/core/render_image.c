@@ -119,11 +119,13 @@ int main(int argc, char *argv[])
     long long NumPart = 0, NumPartRead = 0;
 
     float *x = NULL, *y = NULL, *z = NULL;
+    float *vx = NULL, *vy = NULL, *vz = NULL;
     int   *ptype = NULL;
     float *smoothing_length = NULL;
 
     int isHDF5        = 0;
     int isDistributed = 0;
+    int read_velocities_flag = 0;
 
     struct sim_info header;
     memset(&header, 0, sizeof(header));
@@ -384,15 +386,70 @@ int main(int argc, char *argv[])
     y     = (float *)malloc(sizeof(float) * NumPart);
     z     = (float *)malloc(sizeof(float) * NumPart);
     ptype = (int   *)malloc(sizeof(int)   * NumPart);
-
+    
+    int do_interp  = (interp_frac != 0.0f && isHDF5);
+    
+    if (do_interp) {
+        vx = (float *)malloc(sizeof(float) * NumPart);
+        vy = (float *)malloc(sizeof(float) * NumPart);
+        vz = (float *)malloc(sizeof(float) * NumPart);
+        
+        if (!vx || !vy || !vz) {
+            fprintf(stderr, "Failed to allocate velocity arrays\n");
+            exit(1);
+        }
+    }
+    
     if (ThisTask == 0) { fprintf(stdout, "Reading particles...\n"); fflush(stdout); }
-
+    
     if (isHDF5)
-        read_particles_from_hdf5(file_root, x, y, z, ptype,
-                                  header.NumFiles, &NumPartRead);
+        read_particles_from_hdf5(file_root, x, y, z, vx, vy, vz, ptype,
+                                  header.NumFiles, &NumPartRead, do_interp);
     else
         read_particles_from_gadget_binary(file_root, x, y, z, ptype,
                                            header.NumFiles, &NumPartRead);
+   
+    fprintf(stdout, "NumPart: %llu\t NumPartRead: %llu\n", NumPart,NumPartRead);
+    fflush(stdout);
+
+    
+    if (do_interp) {
+        /*
+         * Velocity interpolation: shift particle positions by frac * v * dt
+         * to generate sub-snapshot frames between two outputs.
+         *
+         * This produces smooth transitions in a time sequence without needing
+         * to store or read a second snapshot.  The approximation is first-order
+         * (straight-line motion), which is accurate for small fractions of the
+         * snapshot interval and breaks down near strong interactions.
+         *
+         * Usage:
+         *   -interp_frac 0.5          half-step forward using snapshot velocities
+         *   -snap_dt 0.05             snapshot interval in simulation time units
+         *
+         * If -snap_dt is omitted, velocities are used as raw offsets (useful when
+         * you just want to explore the velocity field visually).
+         *
+         * To generate N interpolated frames between snapshots A and B:
+         *   for f in $(seq 0 0.1 1.0); do
+         *     ./render_image.exe -input snapA ... -interp_frac $f -snap_dt 0.05
+         *   done
+         */
+        float scale = (snap_dt > 0.0f) ? interp_frac * snap_dt : interp_frac;
+        
+        fprintf(stdout,
+                "Interpolating positions: frac=%.3f dt=%g scale=%g\n",
+                interp_frac, snap_dt, scale);
+        fflush(stdout);
+        
+        for (long long k = 0; k < NumPartRead; k++) {
+            x[k] += scale * vx[k];
+            y[k] += scale * vy[k];
+            z[k] += scale * vz[k];
+        }
+        
+        free(vx); free(vy); free(vz);
+    }
 
     select_particles(x, y, z, ptype, header.BoxSize, NumPartRead,
                      xc, yc, zc, lbox, ptype_mask, &NumPart);
@@ -412,59 +469,7 @@ int main(int argc, char *argv[])
 #endif
         return 1;
     }
-
-    /*
-     * Velocity interpolation: shift particle positions by frac * v * dt
-     * to generate sub-snapshot frames between two outputs.
-     *
-     * This produces smooth transitions in a time sequence without needing
-     * to store or read a second snapshot.  The approximation is first-order
-     * (straight-line motion), which is accurate for small fractions of the
-     * snapshot interval and breaks down near strong interactions.
-     *
-     * Usage:
-     *   -interp_frac 0.5          half-step forward using snapshot velocities
-     *   -snap_dt 0.05             snapshot interval in simulation time units
-     *
-     * If -snap_dt is omitted, velocities are used as raw offsets (useful when
-     * you just want to explore the velocity field visually).
-     *
-     * To generate N interpolated frames between snapshots A and B:
-     *   for f in $(seq 0 0.1 1.0); do
-     *     ./render_image.exe -input snapA ... -interp_frac $f -snap_dt 0.05
-     *   done
-     */
-    if (interp_frac != 0.0f && isHDF5) {
-        float *vx = (float *)malloc(sizeof(float) * NumPart);
-        float *vy = (float *)malloc(sizeof(float) * NumPart);
-        float *vz = (float *)malloc(sizeof(float) * NumPart);
-
-        if (vx && vy && vz) {
-            long long nvel = 0;
-            read_velocities_from_hdf5(file_root, vx, vy, vz,
-                                       header.NumFiles, &nvel);
-
-            /* Scale factor: interp_frac * dt converts velocity to displacement.
-             * If snap_dt not given, use interp_frac alone as a dimensionless scale. */
-            float scale = (snap_dt > 0.0f) ? interp_frac * snap_dt : interp_frac;
-
-            fprintf(stdout,
-                "Interpolating positions: frac=%.3f  dt=%g  scale=%g\n",
-                interp_frac, snap_dt, scale);
-            fflush(stdout);
-
-            for (long long k = 0; k < NumPart; k++) {
-                x[k] += scale * vx[k];
-                y[k] += scale * vy[k];
-                z[k] += scale * vz[k];
-            }
-        } else {
-            fprintf(stderr, "Warning: could not allocate velocity arrays — "
-                    "skipping interpolation\n");
-        }
-        free(vx); free(vy); free(vz);
-    }
-
+    
     if (ThisTask == 0) {
         fprintf(stdout, "Plotting %lld particles (type mask 0x%x)...\n",
                 NumPart, (unsigned)ptype_mask);

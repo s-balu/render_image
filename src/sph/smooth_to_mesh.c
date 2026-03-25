@@ -78,6 +78,13 @@ static void project_strip(const grid_t *dens3d,
         for (int iy = 0; iy < height; iy++) {
             const grid_t *src = slice + (size_t)iy * lw;
             float        *dst = data  + (size_t)iy * full_width + x0;
+//            /* bounds check */
+//            size_t dst_idx = (size_t)(strip_y0 + iy) * width + lx_start;
+//            if (dst_idx + lw > (size_t)width * height) {
+//                fprintf(stderr, "PROJ OOB: strip=%d iz=%d iy=%d dst_idx=%zu max=%zu\n",
+//                        strip, iz, iy, dst_idx, (size_t)width*height);
+//                fflush(stderr); continue;
+//            }
             for (int ix = 0; ix < lw; ix++)
                 dst[ix] += (float)src[ix];
         }
@@ -315,16 +322,13 @@ static long long deposit_cic_yrange(long long NumPart,
     float norm = vox_x * vox_y;
 
     for (long long i = 0; i < NumPart; i++) {
-        float px = (x[i] - xc) * vox_x + 0.5f * full_width - (float)x0_vox;
+        float px = (x[i] - xc) * vox_x + 0.5f * full_width; // - (float)x0_vox;
         float py = (y[i] - yc) * vox_y + 0.5f * height;
         float pz = (z[i] - zc) * vox_z + 0.5f * depth;
 
         int ix0 = (int)floorf(px - 0.5f);
         int iy0 = (int)floorf(py - 0.5f);
         int iz0 = (int)floorf(pz - 0.5f);
-
-        /* Skip if stencil doesn't overlap this thread's y-range */
-        if (iy0 + 1 < y_lo || iy0 >= y_hi) continue;
 
         float tx = px - ((float)ix0 + 0.5f);
         float ty = py - ((float)iy0 + 0.5f);
@@ -338,27 +342,33 @@ static long long deposit_cic_yrange(long long NumPart,
 #ifdef NONPERIODIC
             if (jz < 0 || jz >= depth) continue;
 #else
-            if (jz < 0)      jz += depth;
-            if (jz >= depth) jz -= depth;
+            jz = (jz % depth + depth) % depth;
 #endif
+            /* Safety clamp: guard against jz still out of range after
+             * periodic wrap (e.g. iz0 < -depth) or missing -DNONPERIODIC */
+            if (jz < 0 || jz >= depth) continue;
             /* Grid is grid_height rows tall; row jy maps to grid row jy - y_base */
             size_t base_z = (size_t)jz * grid_height * lw;
             for (int dy = 0; dy < 2; dy++) {
                 int jy = iy0 + dy;
-                if (jy < y_lo || jy >= y_hi) continue;
-#ifdef NONPERIODIC
-                if (jy < 0 || jy >= height) continue;
+#ifndef NONPERIODIC
+                jy = (jy + height) % height;
 #else
-                if (jy < 0)       jy += height;
-                if (jy >= height) jy -= height;
+                if (jy < 0 || jy >= height) continue;
 #endif
+                if (jy < y_lo || jy >= y_hi) continue;
+                
                 int jy_grid = jy - y_base;   /* index into strip grid */
                 if (jy_grid < 0 || jy_grid >= grid_height) continue;
                 size_t base_zy = base_z + (size_t)jy_grid * lw;
                 float  wzy     = wz[dz] * wy[dy];
                 for (int dx = 0; dx < 2; dx++) {
                     int jx = ix0 + dx;
+#ifdef NONPERIODIC
+                    jx = (jx % lw +lw) % lw;
+#else
                     if (jx < 0 || jx >= lw) continue;
+#endif
                     dens3d[base_zy + jx] += (grid_t)(wzy * wx[dx] * norm);
                     n_deposited++;
                 }
@@ -679,6 +689,8 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
                                lx_start, strip_y0, strip_y1,
                                strip_y0, this_strip_h, strip_grid);
 #endif
+            fprintf(stdout,"lx_start=%d lw=%d width=%d\n", lx_start, lw, width);
+            fflush(stdout);
             /* Project this strip's 3D grid into the 2D output image.
              * project_strip_offset writes only to rows [strip_y0, strip_y1). */
             for (int iz = 0; iz < depth; iz++) {

@@ -287,13 +287,17 @@ void read_gadget_binary_header(char *filename, struct sim_info *header,
 /* so it naturally handles any number of types.                         */
 /* ------------------------------------------------------------------ */
 void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
-                               int *ptype, int NumFiles,
-                               long long *NThisTask)
+                              float *vx, float *vy, float *vz,
+                              int *ptype, int NumFiles,
+                              long long *NThisTask,
+                              int read_velocities_flag)
 {
     int i, j, k, nfile;
     char filename[256], groupname[64];
     float *dummy;
-
+    
+    long long base_nthistask = *NThisTask;
+    
     /* Per-file npart: size up to MAX_TYPE_PROBE */
     int tmp_npart[MAX_TYPE_PROBE];
 
@@ -324,10 +328,16 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
         for (i = 0; i < num_types_in_file; i++) {
             if (tmp_npart[i] <= 0) continue;
 
+            hsize_t start = (tmp_npart[i] * ThisTask) / NTask;
+            hsize_t end   = (tmp_npart[i] * (ThisTask + 1)) / NTask;
+            hsize_t per_task = end - start;
+
             sprintf(groupname, "/PartType%d", i);
             if (H5Lexists(hdf5_file, groupname, H5P_DEFAULT) <= 0) continue;
 
             hdf5_grp     = H5Gopen(hdf5_file, groupname);
+            
+            // First read in Coordinates
             hdf5_dataset = H5Dopen(hdf5_grp, "Coordinates");
             hdf5_datatype = H5Tcopy(H5T_NATIVE_FLOAT);
 
@@ -336,7 +346,6 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
             dims_g[0] = tmp_npart[i];
             hdf5_dataspace_in_file = H5Screate_simple(rank_g, dims_g, NULL);
 
-            hsize_t per_task = tmp_npart[i] / NTask;
             dims_g[0] = per_task;
             hdf5_dataspace_in_memory = H5Screate_simple(rank_g, dims_g, NULL);
 
@@ -357,12 +366,11 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
 
             k = 0;
             for (j = 0; j < (int)per_task; j++) {
-                x[*NThisTask] = dummy[k];
-                y[*NThisTask] = dummy[k + 1];
-                z[*NThisTask] = dummy[k + 2];
-                ptype[*NThisTask] = i;
+                x[base_nthistask + j] = dummy[k];
+                y[base_nthistask + j] = dummy[k + 1];
+                z[base_nthistask + j] = dummy[k + 2];
+                ptype[base_nthistask + j] = i;
                 k += 3;
-                (*NThisTask)++;
             }
             free(dummy);
 
@@ -370,11 +378,59 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
             hdf5_status = H5Sclose(hdf5_dataspace_in_file);
             hdf5_status = H5Tclose(hdf5_datatype);
             hdf5_status = H5Dclose(hdf5_dataset);
+            
+            if(read_velocities_flag)
+            {
+                // First read in Velocities
+                hdf5_dataset = H5Dopen(hdf5_grp, "Velocities");
+                hdf5_datatype = H5Tcopy(H5T_NATIVE_FLOAT);
+                
+                rank_g    = 2;
+                dims_g[1] = 3;
+                dims_g[0] = tmp_npart[i];
+                hdf5_dataspace_in_file = H5Screate_simple(rank_g, dims_g, NULL);
+                
+                dims_g[0] = per_task;
+                hdf5_dataspace_in_memory = H5Screate_simple(rank_g, dims_g, NULL);
+                
+                start_g[0] = (hsize_t)ThisTask * per_task;
+                start_g[1] = 0;
+                count_g[0] = per_task;
+                count_g[1] = 3;
+                
+                hdf5_status = H5Sselect_hyperslab(hdf5_dataspace_in_file,
+                                                  H5S_SELECT_SET,
+                                                  start_g, NULL, count_g, NULL);
+                
+                dummy = (float *)malloc(3 * sizeof(float) * per_task);
+                hdf5_status = H5Dread(hdf5_dataset, hdf5_datatype,
+                                      hdf5_dataspace_in_memory,
+                                      hdf5_dataspace_in_file,
+                                      H5P_DEFAULT, dummy);
+                
+                k = 0;
+                for (j = 0; j < (int)per_task; j++) {
+                    vx[base_nthistask+j] = dummy[k];
+                    vy[base_nthistask+j] = dummy[k + 1];
+                    vz[base_nthistask+j] = dummy[k + 2];
+                    k += 3;
+                }
+                free(dummy);
+                
+                hdf5_status = H5Sclose(hdf5_dataspace_in_memory);
+                hdf5_status = H5Sclose(hdf5_dataspace_in_file);
+                hdf5_status = H5Tclose(hdf5_datatype);
+                hdf5_status = H5Dclose(hdf5_dataset);
+            }
+            
             hdf5_status = H5Gclose(hdf5_grp);
+            
+            *NThisTask+=per_task;
         }
-
         hdf5_status = H5Fclose(hdf5_file);
     }
+
+    fflush(stdout);
 }
 
 
