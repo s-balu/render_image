@@ -187,13 +187,45 @@ int main(int argc, char *argv[])
     float *x = NULL, *y = NULL, *z = NULL;
     int   *ptype = NULL;
 
-    if (load_particles(&cfg, &header, filename,
-                       &x, &y, &z, &ptype, &NumPartRead) != 0) {
+    if (hermite_mode(&cfg)) {
+        /*
+         * Two-snapshot Hermite interpolation.
+         * snap_a and snap_b are set in the YAML file.
+         * interp_frac is the parameter t in [0,1]:
+         *   t=0 → exact snapshot A positions
+         *   t=1 → exact snapshot B positions
+         *   0<t<1 → smooth cubic interpolation between them
+         *
+         * With -itmax N the render loop generates N evenly-spaced
+         * frames: t = 0, 1/(N-1), 2/(N-1), ..., 1.
+         * With -interp_frac f a single frame at t=f is produced.
+         */
+        if (load_particles_hermite(&cfg, &header,
+                                   &x, &y, &z, &ptype,
+                                   &NumPartRead) != 0) {
 #ifdef ENABLE_MPI
-        MPI_Finalize();
+            MPI_Finalize();
 #endif
-        return 1;
+            return 1;
+        }
+    } else {
+        /* Single-snapshot path — behaviour unchanged */
+        if (load_particles(&cfg, &header, filename,
+                           &x, &y, &z, &ptype, &NumPartRead) != 0) {
+#ifdef ENABLE_MPI
+            MPI_Finalize();
+#endif
+            return 1;
+        }
     }
+    
+//    if (load_particles(&cfg, &header, filename,
+//                       &x, &y, &z, &ptype, &NumPartRead) != 0) {
+//#ifdef ENABLE_MPI
+//        MPI_Finalize();
+//#endif
+//        return 1;
+//    }
 
     /* Select volume and distribute across MPI tasks */
     select_particles(x, y, z, ptype, header.BoxSize, NumPartRead,
@@ -255,6 +287,37 @@ int main(int argc, char *argv[])
     for (int iter = 0; iter < n_frames; iter++) {
         memset(data,        0, IMAGE_DIMENSIONX * IMAGE_DIMENSIONY * sizeof(float));
         memset(global_data, 0, IMAGE_DIMENSIONX * IMAGE_DIMENSIONY * sizeof(float));
+        
+        /*
+         * For Hermite sequences driven by -itmax N:
+         * override interp_frac per frame inside the render loop.
+         *
+         * Add this at the TOP of the for (int iter = 0; ...) loop body,
+         * before the rotate_particles() call:
+         */
+        
+        /* Inside render loop, before rotate_particles(): */
+        if (hermite_mode(&cfg) && cfg.itmax > 1) {
+            /*
+             * Recompute interpolated positions for this frame.
+             * t advances uniformly from 0 at iter=0 to 1 at iter=itmax-1.
+             */
+            cfg.interp_frac = (cfg.itmax > 1)
+            ? (float)iter / (float)(cfg.itmax - 1)
+            : 0.0f;
+            
+            if (load_particles_hermite(&cfg, &header,
+                                       &x, &y, &z, &ptype,
+                                       &NumPartRead) != 0) {
+                fprintf(stderr, "Hermite load failed at frame %d\n", iter);
+                break;
+            }
+            
+            /* Re-select view volume after reloading */
+            long long NP = NumPartRead;
+            select_particles(x, y, z, ptype, header.BoxSize, NP,
+                             xc, yc, zc, cfg.lbox, cfg.ptype_mask, &NumPart);
+        }
 
         rotate_particles(x, y, z, rx, ry, rz, NumPart,
                          xc, yc, zc, cfg.rot_axis, cfg.rot_dangle, iter);

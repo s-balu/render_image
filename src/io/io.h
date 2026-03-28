@@ -52,18 +52,10 @@ void read_hdf5_header(char *filename, struct sim_info *header,
                       long long *NumPart);
 
 void read_particles_from_hdf5(char *filename,
-                               float *x, float *y, float *z,
-                               float *vx, float *vy, float *vz,
-                               int *ptype, int ptype_mask,
-                               long long *NumPartRead,
-                               int read_velocities_flag);
-
-/* Read particle velocities from HDF5 into vx/vy/vz.
- * Must be called after read_particles_from_hdf5 with the same file
- * and ptype_mask so array indices correspond. */
-void read_velocities_from_hdf5(char *filename,
-                                float *vx, float *vy, float *vz,
-                                int NumFiles, long long *NThisTask);
+                              float *x, float *y, float *z,
+                              unsigned long long *partid,
+                              int *ptype, int ptype_mask,
+                              long long *NumPartRead);
 
 /* ------------------------------------------------------------------ */
 /* Gadget binary reader                                                 */

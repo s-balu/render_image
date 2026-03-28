@@ -1,10 +1,5 @@
 /*
  * args.c — CLI argument parsing for render_image.
- *
- * Contains:
- *   cli_args_default()  — canonical default values (previously in main())
- *   parse_args()        — the while(i < argc) loop (previously in main())
- *   args_unpack()       — copies cli_args_t back into main()'s flat locals
  */
 
 #include <stdio.h>
@@ -13,8 +8,7 @@
 #include <math.h>
 
 #include "args.h"
-#include "colormap.h"   /* render_config_default(), render_config_parse_arg(),
-                           OPACITY_* and CMAP_* constants                    */
+#include "colormap.h"
 
 /* ------------------------------------------------------------------ */
 /* Defaults                                                             */
@@ -36,18 +30,20 @@ void cli_args_default(cli_args_t *args)
     args->num_ngb     = 32;
     args->sph_eta     = 1.2f;
 
+    /* Hermite snapshot paths — all empty by default.
+     * memset above zeroes snap_prev/snap_a/snap_b/snap_next,
+     * so hermite_mode() and hermite3_mode() both return 0. */
+
     render_config_default(&args->rcfg);
 }
 
 /* ------------------------------------------------------------------ */
-/* Scene preset helper (shared with config.c)                          */
+/* Scene preset (non-static so config.c can call it)                   */
 /* ------------------------------------------------------------------ */
 
 void apply_scene_preset(cli_args_t *args, const char *scene)
 {
     if (strcmp(scene, "cluster") == 0) {
-        /* One dominant halo: sqrt opacity compresses bright core
-         * so outskirts remain visible. magma, tight lo clip. */
         args->rcfg.auto_pct_lo  = 0.05f;
         args->rcfg.auto_pct_hi  = 1.0f;
         args->rcfg.opacity_func = OPACITY_SQRT;
@@ -55,8 +51,6 @@ void apply_scene_preset(cli_args_t *args, const char *scene)
         args->rcfg.colormap     = CMAP_MAGMA;
         args->rcfg.log_scale    = 1;
     } else if (strcmp(scene, "scattered") == 0) {
-        /* Many halos at similar densities: flat opacity gives
-         * equal visual weight to all. plasma, wider lo clip. */
         args->rcfg.auto_pct_lo  = 0.10f;
         args->rcfg.auto_pct_hi  = 1.0f;
         args->rcfg.opacity_func = OPACITY_FLAT;
@@ -64,9 +58,6 @@ void apply_scene_preset(cli_args_t *args, const char *scene)
         args->rcfg.colormap     = CMAP_PLASMA;
         args->rcfg.log_scale    = 1;
     } else if (strcmp(scene, "filament") == 0) {
-        /* Large-scale structure: power opacity (gamma=0.5)
-         * compresses dense nodes so filaments stay visible.
-         * inferno, very low lo clip to show faint sheets. */
         args->rcfg.auto_pct_lo   = 0.02f;
         args->rcfg.auto_pct_hi   = 1.0f;
         args->rcfg.opacity_func  = OPACITY_POWER;
@@ -90,7 +81,7 @@ int parse_args(int argc, char *argv[], cli_args_t *args)
     int i = 1;
     while (i < argc) {
 
-        /* ---- Config file (recorded; loading is the caller's job) ---- */
+        /* ---- Config file ---- */
         if (strcmp(argv[i], "-config") == 0)
             snprintf(args->config_path, sizeof(args->config_path),
                      "%s", argv[++i]);
@@ -104,6 +95,16 @@ int parse_args(int argc, char *argv[], cli_args_t *args)
                      "%s", argv[++i]);
         else if (strcmp(argv[i], "-isHDF5") == 0)
             args->isHDF5 = 1;
+
+        /* ---- Hermite snapshot paths ---- */
+        else if (strcmp(argv[i], "-snap_prev") == 0)
+            snprintf(args->snap_prev, sizeof(args->snap_prev), "%s", argv[++i]);
+        else if (strcmp(argv[i], "-snap_a") == 0)
+            snprintf(args->snap_a, sizeof(args->snap_a), "%s", argv[++i]);
+        else if (strcmp(argv[i], "-snap_b") == 0)
+            snprintf(args->snap_b, sizeof(args->snap_b), "%s", argv[++i]);
+        else if (strcmp(argv[i], "-snap_next") == 0)
+            snprintf(args->snap_next, sizeof(args->snap_next), "%s", argv[++i]);
 
         /* ---- View / simulation ---- */
         else if (strcmp(argv[i], "-units") == 0) args->boxunits = atoi(argv[++i]);

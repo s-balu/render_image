@@ -6,9 +6,14 @@
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
-input:  /Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0093/HiSURFS-6pt25_0093 # snapshot root (no extension)
-output: /Users/00075868/Currentwork/HiSURFS/frame # output image root; frames written as root.NNNN.png
-isHDF5: true
+snap_a:      /Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0091/HiSURFS-6pt25_0091 
+snap_b:      /Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0093/HiSURFS-6pt25_0093
+output:      /Users/00075868/Currentwork/HiSURFS/frames/interp
+isHDF5:      true
+dark_matter: true
+snap_dt:     0.0012
+itmax:       8          # t = 0, 1/23, 2/23, ..., 1
+lock_levels: true
 
 # ---------------------------------------------------------------------------
 # View
@@ -22,15 +27,15 @@ units: 1      # 0 = simulation units; 1 = box-normalised [0,1]
 # ---------------------------------------------------------------------------
 # Animation
 # ---------------------------------------------------------------------------
-itmax: 36          # number of frames (fixed box)
+#itmax: 36          # number of frames (fixed box)
 #zoom:  8          # alternative: N zoom-in frames (comment out itmax)
 #zoom_factor: 0.8  # box shrinks by this factor each zoom frame (0 < f < 1)
 
 # ---------------------------------------------------------------------------
 # Rotation  (applied per-frame; 0 = no rotation)
 # ---------------------------------------------------------------------------
-rot_dangle: 10.0       # degrees per frame
-rot_axis:   "0,0,1"   # rotation axis as "x,y,z" (normalised automatically)
+#rot_dangle: 10.0       # degrees per frame
+#rot_axis:   "0,0,1"   # rotation axis as "x,y,z" (normalised automatically)
 
 # ---------------------------------------------------------------------------
 # Particle selection
@@ -47,7 +52,7 @@ dark_matter: true
 # Options: cluster | scattered | filament
 # Individual settings below override the preset.
 # ---------------------------------------------------------------------------
-#scene: cluster
+scene: filament
 
 # ---------------------------------------------------------------------------
 # Colour map

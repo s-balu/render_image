@@ -4,16 +4,24 @@
 /*
  * args.h — CLI argument struct and parser for render_image.
  *
- * Provides cli_args_t (all tuneable parameters in one place),
- * cli_args_default() (fills in the same defaults previously scattered
- * through main()), and parse_args() (the extracted parse loop).
- *
  * Typical call sequence in main():
  *
  *   cli_args_t args;
  *   cli_args_default(&args);
- *   load_yaml_config(args.config_path, &args);  // YAML baseline (config.h)
+ *   load_yaml_config(args.config_path, &args);  // YAML baseline
  *   parse_args(argc, argv, &args);              // CLI wins
+ *
+ * Interpolation mode selection (checked in this priority order):
+ *
+ *   hermite3_mode()  snap_prev + snap_a + snap_b set
+ *                    → load_particles_hermite3()   Catmull-Rom, ID-matched
+ *                    snap_next is optional; if set, gives a fully centred
+ *                    difference at the right endpoint (4-snapshot mode).
+ *
+ *   hermite_mode()   snap_a + snap_b set (snap_prev empty)
+ *                    → load_particles_hermite()    2-snapshot, index-matched
+ *
+ *   (neither)        → load_particles()            single snapshot
  */
 
 #include "colormap.h"   /* render_config_t */
@@ -24,9 +32,30 @@ typedef struct {
     char config_path[512];      /* -config <file> */
 
     /* ----- I/O ----- */
-    char file_root[256];        /* -input  <root> */
+    char file_root[256];        /* -input  <root>  (single snapshot or snap_a) */
     char image_file_root[256];  /* -output <root> */
-    int  isHDF5;                /* -isHDF5        */
+    int  isHDF5;                /* -isHDF5 */
+
+    /* ----- Hermite interpolation snapshots ----- */
+    /*
+     * 2-snapshot mode (hermite_mode):
+     *   snap_a  — left  endpoint (t=0)
+     *   snap_b  — right endpoint (t=1)
+     *
+     * 3-snapshot Catmull-Rom mode (hermite3_mode):
+     *   snap_prev — snapshot before snap_a  (tangent at left  endpoint)
+     *   snap_a    — left  endpoint (t=0)
+     *   snap_b    — right endpoint (t=1)
+     *   snap_next — snapshot after  snap_b  (tangent at right endpoint, optional)
+     *               if omitted, a one-sided backward difference is used at snap_b
+     *
+     * All four paths are YAML-only (paths are too long for convenient CLI use).
+     * snap_prev and snap_next can also be set via -snap_prev / -snap_next CLI flags.
+     */
+    char snap_prev[512];        /* snap_prev: path — snapshot before snap_a  */
+    char snap_a[512];           /* snap_a:    path — first  snapshot (t=0)   */
+    char snap_b[512];           /* snap_b:    path — second snapshot (t=1)   */
+    char snap_next[512];        /* snap_next: path — snapshot after  snap_b  */
 
     /* ----- View / simulation ----- */
     int    boxunits;            /* -units 0|1     */
@@ -54,37 +83,47 @@ typedef struct {
     int   fast_smooth;          /* -fast_smooth    */
 
     /* ----- Time interpolation ----- */
-    float interp_frac;          /* -interp_frac f */
-    float snap_dt;              /* -snap_dt val   */
+    float interp_frac;          /* -interp_frac f  — parameter t in [0,1]          */
+    float snap_dt;              /* -snap_dt val    — legacy; ignored in Hermite3    */
 
     /* ----- 3-D grid ----- */
     int ngrid_z;                /* -ngrid_z N */
 
 } cli_args_t;
 
-/*
- * cli_args_default() — populate *args with the defaults that were
- * previously scattered through main()'s variable declarations.
- * Always call this before parse_args() or load_yaml_config().
- */
-void cli_args_default(cli_args_t *args);
+/* ------------------------------------------------------------------ */
+/* Function declarations                                                */
+/* ------------------------------------------------------------------ */
 
-/*
- * Scene preset helper
- */
+void cli_args_default(cli_args_t *args);
+int  parse_args(int argc, char *argv[], cli_args_t *args);
 void apply_scene_preset(cli_args_t *args, const char *scene);
 
-/*
- * parse_args() — walk argv and populate *args.
- *
- * -config is stored in args->config_path but config loading is left
- * to the caller, preserving the explicit precedence order:
- *
- *   cli_args_default()  →  load_yaml_config()  →  parse_args()
- *
- * Unknown flags print a warning to stderr but do not abort.
- * Returns 0 on success.
- */
-int parse_args(int argc, char *argv[], cli_args_t *args);
+/* ------------------------------------------------------------------ */
+/* Mode predicates                                                      */
+/* ------------------------------------------------------------------ */
 
-#endif // !ARGS_H
+/*
+ * hermite3_mode() — Catmull-Rom 3/4-snapshot interpolation.
+ * Requires snap_prev + snap_a + snap_b.  snap_next is optional.
+ * Takes priority over hermite_mode().
+ */
+static inline int hermite3_mode(const cli_args_t *args)
+{
+    return (args->snap_prev[0] != '\0' &&
+            args->snap_a[0]   != '\0' &&
+            args->snap_b[0]   != '\0');
+}
+
+/*
+ * hermite_mode() — 2-snapshot finite-difference Hermite interpolation.
+ * Requires snap_a + snap_b.  Only active when snap_prev is not set.
+ */
+static inline int hermite_mode(const cli_args_t *args)
+{
+    return (args->snap_prev[0] == '\0' &&
+            args->snap_a[0]   != '\0' &&
+            args->snap_b[0]   != '\0');
+}
+
+#endif /* ARGS_H */

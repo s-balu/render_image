@@ -657,51 +657,122 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
             int strip_y0 = strip * strip_h;
             int strip_y1 = strip_y0 + strip_h;
             if (strip_y1 > height) strip_y1 = height;
-            int this_strip_h = strip_y1 - strip_y0;
-
-            /* Allocate just this strip's grid */
+            
+            /* --- Ghost rows: expand allocation by 1 row on each side ---
+             * A CIC stencil spans 2 voxels, so a particle at the last row
+             * of a strip deposits weight into strip_y1, which belongs to
+             * the next strip.  Without ghost rows that weight is silently
+             * dropped, producing a density deficit every CIC_STRIP_HEIGHT
+             * rows — the visible seam lines.
+             * ghost=1 is sufficient because the CIC stencil is only 2 wide. */
+            const int ghost = 1;
+            int alloc_y0 = (strip_y0 > 0)      ? strip_y0 - ghost : strip_y0;
+            int alloc_y1 = (strip_y1 < height)  ? strip_y1 + ghost : strip_y1;
+            int alloc_h  = alloc_y1 - alloc_y0;
+            
+            /* Allocate ghost-padded strip grid */
             grid_t *strip_grid = (grid_t *)calloc(
-                (size_t)lw * this_strip_h * depth, sizeof(grid_t));
+                                                  (size_t)lw * alloc_h * depth, sizeof(grid_t));
             if (!strip_grid) {
                 fprintf(stderr,
-                    "smooth_to_mesh: failed to allocate strip grid "
-                    "(%zu MB). Try smaller -CIC_STRIP_HEIGHT.\n",
-                    (size_t)lw * this_strip_h * depth * sizeof(grid_t) / (1024*1024));
+                        "smooth_to_mesh: failed to allocate strip grid "
+                        "(%zu MB). Try smaller -CIC_STRIP_HEIGHT.\n",
+                        (size_t)lw * alloc_h * depth * sizeof(grid_t) / (1024*1024));
                 break;
             }
-
+            
 #ifdef ENABLE_OPENMP
             int NThreads = omp_get_max_threads();
-            #pragma omp parallel num_threads(NThreads) reduction(+:total_deposited)
+#pragma omp parallel num_threads(NThreads) reduction(+:total_deposited)
             {
                 int tid    = omp_get_thread_num();
-                /* Thread owns a sub-range within this strip */
-                int thr_y0 = strip_y0 + (long long)tid       * this_strip_h / NThreads;
-                int thr_y1 = strip_y0 + (long long)(tid + 1) * this_strip_h / NThreads;
+                /* Thread owns a sub-range of the TRUE strip rows (not ghost rows).
+                 * deposit_cic_yrange clips to [thr_y0, thr_y1) in image space,
+                 * but deposits into the ghost-padded grid via alloc_y0 offset. */
+                int thr_y0 = alloc_y0 + (long long)tid       * alloc_h / NThreads;
+                int thr_y1 = alloc_y0 + (long long)(tid + 1) * alloc_h / NThreads;
                 total_deposited += deposit_cic_yrange(NumPart, x, y, z,
-                                   xc, yc, zc, lbox, width, lw, height, depth,
-                                   lx_start, thr_y0, thr_y1,
-                                   strip_y0, this_strip_h, strip_grid);
+                                                      xc, yc, zc, lbox, width, lw, height, depth,
+                                                      lx_start, thr_y0, thr_y1,
+                                                      alloc_y0, alloc_h, strip_grid);
             }
 #else
             total_deposited += deposit_cic_yrange(NumPart, x, y, z,
-                               xc, yc, zc, lbox, width, lw, height, depth,
-                               lx_start, strip_y0, strip_y1,
-                               strip_y0, this_strip_h, strip_grid);
+                                                  xc, yc, zc, lbox, width, lw, height, depth,
+                                                  lx_start, alloc_y0, alloc_y1,
+                                                  alloc_y0, alloc_h, strip_grid);
 #endif
-
             
-            /* Project this strip's 3D grid into the 2D output image.
-             * project_strip_offset writes only to rows [strip_y0, strip_y1). */
+            /* Project only the TRUE rows (not ghost rows) into the output image.
+             * iy_grid offsets into the ghost-padded strip_grid. */
             for (int iz = 0; iz < depth; iz++) {
-                const grid_t *slice = strip_grid + (size_t)iz * this_strip_h * lw;
-                for (int iy = 0; iy < this_strip_h; iy++) {
-                    const grid_t *src = slice + (size_t)iy * lw;
-                    float *dst = data + (size_t)(strip_y0 + iy) * width + lx_start;
+                for (int iy = strip_y0; iy < strip_y1; iy++) {
+                    int iy_grid = iy - alloc_y0;
+                    const grid_t *src = strip_grid
+                    + (size_t)iz * alloc_h * lw
+                    + (size_t)iy_grid * lw;
+                    float *dst = data + (size_t)iy * width + lx_start;
                     for (int ix = 0; ix < lw; ix++)
                         dst[ix] += (float)src[ix];
                 }
             }
+            
+            free(strip_grid);
+            
+            if (n_strips > 4) {
+                printf("  strip %d/%d done\n", strip + 1, n_strips);
+                fflush(stdout);
+            }
+        }
+//        for (int strip = 0; strip < n_strips; strip++) {
+//            int strip_y0 = strip * strip_h;
+//            int strip_y1 = strip_y0 + strip_h;
+//            if (strip_y1 > height) strip_y1 = height;
+//            int this_strip_h = strip_y1 - strip_y0;
+//
+//            /* Allocate just this strip's grid */
+//            grid_t *strip_grid = (grid_t *)calloc(
+//                (size_t)lw * this_strip_h * depth, sizeof(grid_t));
+//            if (!strip_grid) {
+//                fprintf(stderr,
+//                    "smooth_to_mesh: failed to allocate strip grid "
+//                    "(%zu MB). Try smaller -CIC_STRIP_HEIGHT.\n",
+//                    (size_t)lw * this_strip_h * depth * sizeof(grid_t) / (1024*1024));
+//                break;
+//            }
+//
+//#ifdef ENABLE_OPENMP
+//            int NThreads = omp_get_max_threads();
+//            #pragma omp parallel num_threads(NThreads) reduction(+:total_deposited)
+//            {
+//                int tid    = omp_get_thread_num();
+//                /* Thread owns a sub-range within this strip */
+//                int thr_y0 = strip_y0 + (long long)tid       * this_strip_h / NThreads;
+//                int thr_y1 = strip_y0 + (long long)(tid + 1) * this_strip_h / NThreads;
+//                total_deposited += deposit_cic_yrange(NumPart, x, y, z,
+//                                   xc, yc, zc, lbox, width, lw, height, depth,
+//                                   lx_start, thr_y0, thr_y1,
+//                                   strip_y0, this_strip_h, strip_grid);
+//            }
+//#else
+//            total_deposited += deposit_cic_yrange(NumPart, x, y, z,
+//                               xc, yc, zc, lbox, width, lw, height, depth,
+//                               lx_start, strip_y0, strip_y1,
+//                               strip_y0, this_strip_h, strip_grid);
+//#endif
+//
+//            
+//            /* Project this strip's 3D grid into the 2D output image.
+//             * project_strip_offset writes only to rows [strip_y0, strip_y1). */
+//            for (int iz = 0; iz < depth; iz++) {
+//                const grid_t *slice = strip_grid + (size_t)iz * this_strip_h * lw;
+//                for (int iy = 0; iy < this_strip_h; iy++) {
+//                    const grid_t *src = slice + (size_t)iy * lw;
+//                    float *dst = data + (size_t)(strip_y0 + iy) * width + lx_start;
+//                    for (int ix = 0; ix < lw; ix++)
+//                        dst[ix] += (float)src[ix];
+//                }
+//            }
 
             free(strip_grid);
 

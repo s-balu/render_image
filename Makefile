@@ -6,7 +6,7 @@
 # Feature flags  (comment/uncomment to toggle)
 # ---------------------------------------------------------------------------
 OPT += -DCIC
-OPT += -DCIC_STRIP_HEIGHT=32
+OPT += -DCIC_STRIP_HEIGHT=0
 OPT += -DIMAGE_DIMENSIONX=1024
 OPT += -DIMAGE_DIMENSIONY=1024
 #OPT += -DMAX_H_VOXELS=8

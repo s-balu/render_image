@@ -3,17 +3,31 @@
  *
  * Depends on libyaml (linked via the Makefile's YAML_OPTS).
  *
- * Design notes
- * ------------
- * - Walks a flat YAML key→value mapping via the libyaml event API.
- * - All keys match CLI flag names (minus the leading '-'), so the same
- *   mental model applies whether you are writing a config file or a
- *   shell script.
- * - Booleans accept: true/false, yes/no, on/off, 1/0.
- * - 'ptype' accepts a scalar ("1") or a sequence ([0, 1, 4]).
- * - Unknown keys warn and are skipped; the file never aborts the run.
- * - apply_scene() is defined in args.c and declared via args.h so the
- *   scene preset logic lives in exactly one place.
+ * All keys match CLI flag names (minus the leading '-'), plus
+ * YAML-only keys for Hermite interpolation:
+ *
+ *   2-snapshot mode:
+ *     snap_a: <path>   — left  endpoint (t=0)
+ *     snap_b: <path>   — right endpoint (t=1)
+ *
+ *   3/4-snapshot Catmull-Rom mode (snap_prev triggers this):
+ *     snap_prev: <path>  — snapshot before snap_a (tangent at A, required)
+ *     snap_a:    <path>  — left  endpoint (t=0)
+ *     snap_b:    <path>  — right endpoint (t=1)
+ *     snap_next: <path>  — snapshot after snap_b  (tangent at B, optional)
+ *
+ * Example config.yml for 3-snapshot mode:
+ *   snap_prev: /data/snap_091/snap_091
+ *   snap_a:    /data/snap_092/snap_092
+ *   snap_b:    /data/snap_093/snap_093
+ *   interp_frac: 0.5
+ *
+ * Example config.yml for 4-snapshot mode:
+ *   snap_prev: /data/snap_091/snap_091
+ *   snap_a:    /data/snap_092/snap_092
+ *   snap_b:    /data/snap_093/snap_093
+ *   snap_next: /data/snap_094/snap_094
+ *   interp_frac: 0.5
  */
 
 #include <stdio.h>
@@ -22,12 +36,12 @@
 #include <math.h>
 #include <yaml.h>
 
-#include "config.h"     /* load_yaml_config() declaration  */
-#include "args.h"       /* cli_args_t, apply_scene() via colormap.h chain */
-#include "colormap.h"   /* render_config_parse_arg(), OPACITY_*, CMAP_*   */
+#include "config.h"
+#include "args.h"
+#include "colormap.h"
 
 /* ------------------------------------------------------------------ */
-/* Internal helpers                                                     */
+/* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
 static int yaml_bool(const char *val)
@@ -38,13 +52,9 @@ static int yaml_bool(const char *val)
             strcmp(val, "1")     == 0);
 }
 
-/* Forward-declare the scene helper that lives in args.c */
+/* apply_scene_preset() is defined (non-static) in args.c */
 void apply_scene_preset(cli_args_t *args, const char *scene);
 
-/*
- * apply_kv() — write a single key=value pair into args.
- * Returns 0 on success, -1 if the key is unrecognised.
- */
 static int apply_kv(cli_args_t *args, const char *key, const char *val)
 {
     /* ---- I/O ---- */
@@ -52,6 +62,16 @@ static int apply_kv(cli_args_t *args, const char *key, const char *val)
         snprintf(args->file_root,       sizeof(args->file_root),       "%s", val);
     else if (strcmp(key, "output") == 0)
         snprintf(args->image_file_root, sizeof(args->image_file_root), "%s", val);
+
+    /* ---- Hermite snapshot paths ---- */
+    else if (strcmp(key, "snap_prev") == 0)
+        snprintf(args->snap_prev, sizeof(args->snap_prev), "%s", val);
+    else if (strcmp(key, "snap_a") == 0)
+        snprintf(args->snap_a, sizeof(args->snap_a), "%s", val);
+    else if (strcmp(key, "snap_b") == 0)
+        snprintf(args->snap_b, sizeof(args->snap_b), "%s", val);
+    else if (strcmp(key, "snap_next") == 0)
+        snprintf(args->snap_next, sizeof(args->snap_next), "%s", val);
 
     /* ---- View / simulation ---- */
     else if (strcmp(key, "isHDF5")  == 0) args->isHDF5   = yaml_bool(val);
@@ -109,7 +129,6 @@ static int apply_kv(cli_args_t *args, const char *key, const char *val)
         }
     }
     else if (strcmp(key, "ptype") == 0) {
-        /* Scalar form; sequence items are handled in the event loop */
         int t = atoi(val);
         if (t >= 0 && t < (int)(sizeof(int) * 8)) {
             if (args->ptype_mask == (1 << 1)) args->ptype_mask = 0;
@@ -119,7 +138,7 @@ static int apply_kv(cli_args_t *args, const char *key, const char *val)
 
     /* ---- Scene preset ---- */
     else if (strcmp(key, "scene") == 0)
-        apply_scene_preset(args, val);   /* defined in args.c */
+        apply_scene_preset(args, val);
 
     /* ---- Colour / opacity ---- */
     else if (strcmp(key, "colormap")          == 0) render_config_parse_arg(&args->rcfg, "colormap",          val);
@@ -182,12 +201,6 @@ int load_yaml_config(const char *path, cli_args_t *args)
     }
     yaml_parser_set_input_file(&parser, fp);
 
-    /*
-     * State machine for a flat YAML mapping:
-     *   STATE_KEY   — next scalar is a key
-     *   STATE_VALUE — next scalar is the value for pending_key
-     *   STATE_SEQ   — inside a sequence for pending_key (e.g. ptype: [0,1,4])
-     */
     typedef enum { STATE_KEY, STATE_VALUE, STATE_SEQ } parse_state_t;
     parse_state_t state = STATE_KEY;
     char pending_key[128] = "";
@@ -220,7 +233,7 @@ int load_yaml_config(const char *path, cli_args_t *args)
                 apply_kv(args, pending_key, val);
                 state = STATE_KEY;
             } else if (state == STATE_SEQ) {
-                apply_kv(args, pending_key, val);   /* one item per call */
+                apply_kv(args, pending_key, val);
             }
             break;
         }
