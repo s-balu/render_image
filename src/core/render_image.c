@@ -152,7 +152,8 @@ int main(int argc, char *argv[])
 #endif
         return 0;
     }
-    
+   
+    /* Check to see if there is a configuration file being passed in... */
     for (int k = 1; k < argc - 1; k++) {
         if (strcmp(argv[k], "-config") == 0) {
             snprintf(cfg.config_path, sizeof(cfg.config_path),
@@ -160,17 +161,21 @@ int main(int argc, char *argv[])
             break;
         }
     }
+    
+    /* If yes, load in the parameters */
     if (cfg.config_path[0])
         load_yaml_config(cfg.config_path, &cfg);   /* YAML baseline */
     
+    /* Parse command line arguments, if any have been passed in */
     parse_args(argc, argv, &cfg);                  /* CLI wins      */
     
     /* Derive simulation-unit centre from user input */
     xc = cfg.xcen; yc = cfg.ycen; zc = cfg.zcen;
 
-    /* ---- Setup ---- */
+    /* Make sure files exist; binary vs HDF5; and if they are split across multiple files  */
     check_input_filenames(filename, cfg.file_root, cfg.isHDF5, &isDistributed);
-
+    
+    /* Inform the user of what we think the box parameters are */
     if (ThisTask == 0) {
         if (cfg.xcen > 0 || cfg.lbox > 0) {
             fprintf(stdout, "Centre: (%g|%g|%g)\n", cfg.xcen, cfg.ycen, cfg.zcen);
@@ -182,6 +187,7 @@ int main(int argc, char *argv[])
         fflush(stdout);
     }
 
+    /* Read in header information from file */
     if (cfg.isHDF5)
         read_hdf5_header(filename, &header, &NumPart);
     else
