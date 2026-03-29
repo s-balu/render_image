@@ -11,7 +11,7 @@
 
 #include "postprocess.h"
 
-void postprocess_frame(float *data, int nx, int ny)
+void postprocess_frame(float *data, int nx, int ny, float noise_floor_abs)
 {
     int npix = nx * ny;
 
@@ -27,10 +27,9 @@ void postprocess_frame(float *data, int nx, int ny)
     for (int p = 0; p < npix; p++)
         if (data[p] > gdmax) gdmax = data[p];
 
-    float noise_floor = gdmax * NOISE_FLOOR_FRACTION;
-    if (noise_floor > 0.0f)
+    if (noise_floor_abs > 0.0f)
         for (int p = 0; p < npix; p++)
-            if (data[p] < noise_floor) data[p] = 0.0f;
+            if (data[p] < noise_floor_abs) data[p] = 0.0f;
 
     /* -------------------------------------------------------------- */
     /* Step 2: CIC zero-hole inpainting                                 */

@@ -10,8 +10,8 @@ snap_a:      /Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0091/HiSURFS-6pt2
 snap_b:      /Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0093/HiSURFS-6pt25_0093
 output:      /Users/00075868/Currentwork/HiSURFS/frames/interp
 isHDF5:      true
-dark_matter: true
-snap_dt:     0.0012
+gas: true
+snap_dt:     0.0024
 itmax:       8          # t = 0, 1/23, 2/23, ..., 1
 lock_levels: true
 
@@ -82,7 +82,7 @@ bg_color: "0,0,0,1"   # black, fully opaque
 # ---------------------------------------------------------------------------
 #no_auto_levels: false    # set true to use fixed vmin/vmax
 #lock_levels:    false    # auto-level on frame 0, then lock for all frames
-auto_pct_lo: 0.001
+auto_pct_lo: 0.01
 auto_pct_hi: 0.999
 #linear_scale: false      # use linear density instead of log10
 

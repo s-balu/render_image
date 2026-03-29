@@ -363,7 +363,15 @@ int main(int argc, char *argv[])
                 cfg.rcfg.auto_levels = 0;   /* freeze for subsequent frames */
             }
 
-            postprocess_frame(global_data, IMAGE_DIMENSIONX, IMAGE_DIMENSIONY);
+            /* After locking levels, compute absolute noise floor in
+             * linear density units.
+             * vmin is log10 density, so the linear noise floor is
+             * 10^vmin * NOISE_FLOOR_FRACTION. Using vmin directly means
+             * the threshold tracks the locked colour scale exactly.
+             */
+            float noise_floor_abs = powf(10.0f, cfg.rcfg.vmin) * NOISE_FLOOR_FRACTION;
+
+            postprocess_frame(global_data, IMAGE_DIMENSIONX, IMAGE_DIMENSIONY, noise_floor_abs);
 
             snprintf(image_file, sizeof(image_file),
                      "%s.%04d.png", cfg.image_file_root, iter);

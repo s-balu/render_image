@@ -34,6 +34,6 @@
  *
  * Must be called only on task 0, after MPI reduction.
  */
-void postprocess_frame(float *data, int nx, int ny);
+void postprocess_frame(float *data, int nx, int ny, float noise_floor_abs);
 
 #endif /* POSTPROCESS_H */

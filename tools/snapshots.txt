@@ -1,0 +1,18 @@
+# snapshots.txt — one snapshot root path per line (no extension).
+# Lines starting with '#' and blank lines are ignored.
+#
+# Each path is the root passed to render_image via -snap_a / -snap_b etc.
+# For HDF5 files this is the path WITHOUT the .hdf5 / .N.hdf5 suffix.
+#
+# Example for HiSURFS run with snapshots 0089–0095:
+
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0090/HiSURFS-6pt25_0090
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0091/HiSURFS-6pt25_0091
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0092/HiSURFS-6pt25_0092
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0093/HiSURFS-6pt25_0093
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0094/HiSURFS-6pt25_0094
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0095/HiSURFS-6pt25_0095
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0096/HiSURFS-6pt25_0096
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0097/HiSURFS-6pt25_0097
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0098/HiSURFS-6pt25_0098
+/Users/00075868/Currentwork/HiSURFS/HiSURFS-6pt25_0099/HiSURFS-6pt25_0099
