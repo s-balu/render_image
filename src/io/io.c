@@ -301,7 +301,7 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
 
     for (nfile = 0; nfile < NumFiles; nfile++) {
         if (NumFiles > 1)
-            sprintf(filename, "%s%d.hdf5", temp, nfile);
+            sprintf(filename, "%s.%d.hdf5", temp, nfile);
         else
             sprintf(filename, "%s.hdf5", temp);
 
