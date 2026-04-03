@@ -1,4 +1,4 @@
-![Imbas Banner](https://github.com/doctorcbpower/render_image/blob/master/imbas_banner.jpg))
+![Imbas Banner](https://github.com/doctorcbpower/render_image/blob/master/imbas_banner.jpg)
 
 # Imbas
 
