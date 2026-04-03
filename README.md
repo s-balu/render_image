@@ -1,7 +1,5 @@
 ![Imbas Banner](https://github.com/doctorcbpower/render_image/blob/master/imbas_banner.jpg)
 
-# Imbas
-
 Imbas (n.) /'imbəs/ — Old Irish for "illumination" - is a rendering engine for transforming raw astrophysical simulation data into high-fidelity visual maps.A high-performance N-body simulation volume renderer. Reads particle snapshots in Gadget binary or HDF5 format and produces PNG images with full control over colourmap, opacity, density scaling, and SPH kernel smoothing. Supports single-frame renders, zoom sequences, and rotation animations. Parallelised with OpenMP and optionally MPI.
 
 ---
