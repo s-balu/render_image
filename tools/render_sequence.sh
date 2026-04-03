@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# render_sequence.sh — batch driver for render_image interpolated animations
+# render_sequence.sh — batch driver for imbas_renderer interpolated animations
 #
 # Reads a snapshot list file and renders interpolated frames between consecutive
 # pairs (2-snapshot Hermite) or triplets (3/4-snapshot Catmull-Rom), placing
@@ -17,7 +17,7 @@
 #   render_sequence.sh [OPTIONS] <snapshot_list_file>
 #
 # OPTIONS:
-#   -b, --binary    <path>   Path to render_image binary          [required]
+#   -b, --binary    <path>   Path to imbas_renderer binary        [required]
 #   -c, --config    <path>   Base YAML config file                [required]
 #   -o, --outdir    <path>   Output directory for PNG frames      [required]
 #   -n, --nframes   <N>      Interpolated frames per interval     [default: 9]
@@ -30,7 +30,7 @@
 #                              catmull   — 3-snapshot Catmull-Rom
 #                              catmull4  — 4-snapshot Catmull-Rom
 #   -p, --prefix    <str>    Frame filename prefix                [default: frame]
-#   -j, --jobs      <N>      Parallel render_image invocations   [default: 1]
+#   -j, --jobs      <N>      Parallel imbas_renderer invocations   [default: 1]
 #   -l, --levels  vmin,vmax  Skip probe; use fixed log10 density bounds
 #                            e.g. --levels -1.0,4.5
 #   -d, --dry-run            Print commands without executing
@@ -44,7 +44,7 @@
 #
 # EXAMPLE — 2-snapshot Hermite, 8 interpolated frames per interval:
 #   render_sequence.sh \
-#     --binary ./render_image \
+#     --binary ./imbas_renderer \
 #     --config base.yml \
 #     --outdir ./frames \
 #     --nframes 9 \
@@ -52,7 +52,7 @@
 #     snapshots.txt
 #
 # EXAMPLE — Catmull-Rom (3-snap), 24 frames per interval:
-#   render_sequence.sh -b ./render_image -c base.yml -o ./frames \
+#   render_sequence.sh -b ./imbas_renderer -c base.yml -o ./frames \
 #     -n 25 -m catmull snapshots.txt
 #
 # THEN ASSEMBLE WITH FFMPEG:
@@ -121,8 +121,8 @@ done
 [[ -z "$OUTDIR" ]]        && die "--outdir is required."
 
 [[ -f "$SNAP_LIST" ]] || die "Snapshot list not found: $SNAP_LIST"
-[[ -f "$BINARY"    ]] || die "render_image binary not found: $BINARY"
-[[ -x "$BINARY"    ]] || die "render_image binary is not executable: $BINARY"
+[[ -f "$BINARY"    ]] || die "imbas_renderer binary not found: $BINARY"
+[[ -x "$BINARY"    ]] || die "imbas_renderer binary is not executable: $BINARY"
 [[ -f "$CONFIG"    ]] || die "Config file not found: $CONFIG"
 
 [[ "$NFRAMES" -ge 2 ]] || die "--nframes must be >= 2."
@@ -184,7 +184,7 @@ echo "Output dir:      $OUTDIR"
 echo ""
 
 # ─── Temporary per-interval directory helper ─────────────────────────────────
-# render_image writes frames as <root>.NNNN.png with its own counter
+# imbas_renderer writes frames as <root>.NNNN.png with its own counter
 # starting at 0000 for each invocation.  We redirect each interval to
 # a temp sub-directory, then rename/move the PNGs into OUTDIR using the
 # global frame counter.
@@ -193,7 +193,7 @@ TMPBASE=$(mktemp -d "${OUTDIR}/.rtmp_XXXXXX")
 trap 'rm -rf "$TMPBASE"' EXIT
 
 # ─── Level probe pass ────────────────────────────────────────────────────────
-# Run render_image once with -itmax 1 on the first interval to let it
+# Run imbas_renderer once with -itmax 1 on the first interval to let it
 # auto-level on frame 0, then capture the vmin/vmax it prints.
 # All subsequent interval renders use -no_auto_levels -vmin X -vmax Y
 # so the colour scale is identical across the entire sequence.
@@ -231,7 +231,7 @@ else
     info "Probe command: $PROBE_CMD"
 
     if [[ $DRY_RUN -eq 0 ]]; then
-        # Capture stdout; render_image prints the locked levels as:
+        # Capture stdout; imbas_renderer prints the locked levels as:
         #   "Levels locked (pre-inpaint): vmin=X.XXX vmax=X.XXX"
         PROBE_LOG="${PROBE_TMPDIR}/probe.log"
         eval "$PROBE_CMD" 2>&1 | tee "$PROBE_LOG"
@@ -322,7 +322,7 @@ run_interval() {
     info "Running: $RENDER_CMD"
 
     if [[ $DRY_RUN -eq 0 ]]; then
-        eval "$RENDER_CMD" || { echo "ERROR: render_image failed for $INTERVAL_DIR" >&2; return 1; }
+        eval "$RENDER_CMD" || { echo "ERROR: imbas_renderer failed for $INTERVAL_DIR" >&2; return 1; }
     else
         echo "[DRY-RUN] $RENDER_CMD"
     fi

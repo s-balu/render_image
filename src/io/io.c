@@ -99,7 +99,7 @@ static int probe_num_types_hdf5(hid_t file_id)
     return (num_types > 0) ? num_types : 1;
 }
 
-void read_hdf5_header(char *filename, struct sim_info *header,
+void read_hdf5_header(const char *filename, struct sim_info *header,
                        long long *NumPart)
 {
     int i, j;
@@ -203,12 +203,13 @@ void read_hdf5_header(char *filename, struct sim_info *header,
 /* After reading we count how many of those type slots are non-zero    */
 /* and set header->num_types accordingly.                               */
 /* ------------------------------------------------------------------ */
-void read_gadget_binary_header(char *filename, struct sim_info *header,
+void read_gadget_binary_header(const char *filename, struct sim_info *header,
                                 long long *NumPart)
 {
     int i;
-    long long NumPartInFile = 0;
-
+    
+    long long NumPartInFile=0;
+    
     FILE *infile;
     long long fileoffset;
     int dummy;
@@ -286,7 +287,7 @@ void read_gadget_binary_header(char *filename, struct sim_info *header,
 /* Iterates over all /PartTypeN groups that actually exist in the file, */
 /* so it naturally handles any number of types.                         */
 /* ------------------------------------------------------------------ */
-void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
+void read_particles_from_hdf5(const char *temp, float *x, float *y, float *z,
                               unsigned long long *partid,
                               int *ptype, int NumFiles,
                               long long *NThisTask)
@@ -434,7 +435,7 @@ void read_particles_from_hdf5(char *temp, float *x, float *y, float *z,
 /*                                                                      */
 /* Uses header->num_types for all loops instead of the hard-coded 6.   */
 /* ------------------------------------------------------------------ */
-void read_particles_from_gadget_binary(char *temp, float *x, float *y,
+void read_particles_from_gadget_binary(const char *temp, float *x, float *y,
                                        float *z, int *ptype, int NumFiles,
                                        long long *NThisTask)
 {

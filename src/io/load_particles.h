@@ -22,7 +22,7 @@
  *                                  m1 = wrap(xNext - xA) / 2
  *
  * Both functions write periodically-wrapped interpolated positions into
- * the caller-supplied *x/*y/*z pointers (allocated internally).
+ * the caller-supplied (*x,*y,*z) pointers (allocated internally).
  *
  * Mode selection in cli_args_t:
  *   snap_prev[0] != '\0'  →  hermite3_mode()  →  load_particles_hermite3()

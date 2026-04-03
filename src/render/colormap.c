@@ -431,6 +431,12 @@ static void build_plasma(void)
     }
 }
 
+/* Simple in-place sort (qsort) */
+int cmp_float(const void *a, const void *b) {
+    float fa = *(const float *)a, fb = *(const float *)b;
+    return (fa > fb) - (fa < fb);
+}
+
 static void ensure_generated(colormap_id_t id)
 {
     if (generated_ready[id]) return;
@@ -728,11 +734,6 @@ void auto_levels_from_data(render_config_t *cfg,
                 vals[k++] = data[i];
         }
 
-    /* Simple in-place sort (qsort) */
-    int cmp_float(const void *a, const void *b) {
-        float fa = *(const float *)a, fb = *(const float *)b;
-        return (fa > fb) - (fa < fb);
-    }
     qsort(vals, npos, sizeof(float), cmp_float);
 
     int lo_idx = (int)(cfg->auto_pct_lo * (float)(npos - 1));

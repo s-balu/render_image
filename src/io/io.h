@@ -48,10 +48,10 @@ void check_input_filenames(char *filename, char *buffer,
 /* HDF5 reader                                                          */
 /* ------------------------------------------------------------------ */
 
-void read_hdf5_header(char *filename, struct sim_info *header,
+void read_hdf5_header(const char *filename, struct sim_info *header,
                       long long *NumPart);
 
-void read_particles_from_hdf5(char *filename,
+void read_particles_from_hdf5(const char *filename,
                               float *x, float *y, float *z,
                               unsigned long long *partid,
                               int *ptype, int ptype_mask,
@@ -61,10 +61,10 @@ void read_particles_from_hdf5(char *filename,
 /* Gadget binary reader                                                 */
 /* ------------------------------------------------------------------ */
 
-void read_gadget_binary_header(char *filename, struct sim_info *header,
+void read_gadget_binary_header(const char *filename, struct sim_info *header,
                                 long long *NumPart);
 
-void read_particles_from_gadget_binary(char *filename,
+void read_particles_from_gadget_binary(const char *filename,
                                         float *x, float *y, float *z,
                                         int *ptype, int ptype_mask,
                                         long long *NumPartRead);

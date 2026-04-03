@@ -552,7 +552,6 @@ int load_particles_hermite(const cli_args_t      *cfg,
     /* Finite-difference tangents with periodic wrapping */
     float BoxSize = (float)header->BoxSize;
     float half    = 0.5f * BoxSize;
-    long long nwx = 0, nwy = 0, nwz = 0;
 
     /* Hermite basis polynomials */
     float t  = cfg->interp_frac;
@@ -594,55 +593,7 @@ int load_particles_hermite(const cli_args_t      *cfg,
         (*z)[k] = wrap_pos(pz, BoxSize);
         
         (*ptype)[k] = ptA[k];
-
-
-//
-//        
-//        float dx = xB[k] - xA[k];
-//        float dy = yB[k] - yA[k];
-//        float dz = zB[k] - zA[k];
-//        if (dx >  half) { dx -= BoxSize; nwx++; }
-//        else if (dx < -half) { dx += BoxSize; nwx++; }
-//        if (dy >  half) { dy -= BoxSize; nwy++; }
-//        else if (dy < -half) { dy += BoxSize; nwy++; }
-//        if (dz >  half) { dz -= BoxSize; nwz++; }
-//        else if (dz < -half) { dz += BoxSize; nwz++; }
-//        /* Same tangent at both endpoints */
-//        vxA[k] = dx;  vxB[k] = dx;
-//        vyA[k] = dy;  vyB[k] = dy;
-//        vzA[k] = dz;  vzB[k] = dz;
     }
-
-//    if (ThisTask == 0) {
-//        fprintf(stdout, "Periodic wrapping: x=%lld  y=%lld  z=%lld\n",
-//                nwx, nwy, nwz);
-//        fflush(stdout);
-//    }
-
-//    /* Hermite basis polynomials */
-//    float t  = cfg->interp_frac;
-//    float t2 = t * t, t3 = t2 * t;
-//    float h00 =  2.0f*t3 - 3.0f*t2 + 1.0f;
-//    float h10 =       t3 - 2.0f*t2 + t;
-//    float h01 = -2.0f*t3 + 3.0f*t2;
-//    float h11 =       t3 -       t2;
-//
-//    if (ThisTask == 0) {
-//        fprintf(stdout,
-//                "Hermite: t=%.4f  h00=%.4f h10=%.4f h01=%.4f h11=%.4f\n",
-//                t, h00, h10, h01, h11);
-//        fflush(stdout);
-//    }
-
-//    for (long long k = 0; k < *NumPartRead_out; k++) {
-//        float px = h00*xA[k] + h10*vxA[k] + h01*xB[k] + h11*vxB[k];
-//        float py = h00*yA[k] + h10*vyA[k] + h01*yB[k] + h11*vyB[k];
-//        float pz = h00*zA[k] + h10*vzA[k] + h01*zB[k] + h11*vzB[k];
-//        (*x)[k]     = wrap_pos(px, BoxSize);
-//        (*y)[k]     = wrap_pos(py, BoxSize);
-//        (*z)[k]     = wrap_pos(pz, BoxSize);
-//        (*ptype)[k] = ptA[k];
-//    }
 
     free(xA);  free(yA);  free(zA);  free(ptA);
     free(vxA); free(vyA); free(vzA);

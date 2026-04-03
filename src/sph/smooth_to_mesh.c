@@ -322,7 +322,7 @@ static long long deposit_cic_yrange(long long NumPart,
     float norm = vox_x * vox_y;
 
     for (long long i = 0; i < NumPart; i++) {
-        float px = (x[i] - xc) * vox_x + 0.5f * full_width; // - (float)x0_vox;
+        float px = (x[i] - xc) * vox_x + 0.5f * full_width - (float)x0_vox;
         float py = (y[i] - yc) * vox_y + 0.5f * height;
         float pz = (z[i] - zc) * vox_z + 0.5f * depth;
 
@@ -724,6 +724,7 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
                 fflush(stdout);
             }
         }
+        
 //        for (int strip = 0; strip < n_strips; strip++) {
 //            int strip_y0 = strip * strip_h;
 //            int strip_y1 = strip_y0 + strip_h;
@@ -735,9 +736,9 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
 //                (size_t)lw * this_strip_h * depth, sizeof(grid_t));
 //            if (!strip_grid) {
 //                fprintf(stderr,
-//                    "smooth_to_mesh: failed to allocate strip grid "
-//                    "(%zu MB). Try smaller -CIC_STRIP_HEIGHT.\n",
-//                    (size_t)lw * this_strip_h * depth * sizeof(grid_t) / (1024*1024));
+//                        "smooth_to_mesh: failed to allocate strip grid "
+//                        "(%zu MB). Try smaller -CIC_STRIP_HEIGHT.\n",
+//                        (size_t)lw * this_strip_h * depth * sizeof(grid_t) / (1024*1024));
 //                break;
 //            }
 //
@@ -750,9 +751,9 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
 //                int thr_y0 = strip_y0 + (long long)tid       * this_strip_h / NThreads;
 //                int thr_y1 = strip_y0 + (long long)(tid + 1) * this_strip_h / NThreads;
 //                total_deposited += deposit_cic_yrange(NumPart, x, y, z,
-//                                   xc, yc, zc, lbox, width, lw, height, depth,
-//                                   lx_start, thr_y0, thr_y1,
-//                                   strip_y0, this_strip_h, strip_grid);
+//                                                      xc, yc, zc, lbox, width, lw, height, depth,
+//                                                      lx_start, thr_y0, thr_y1,
+//                                                      strip_y0, this_strip_h, strip_grid);
 //            }
 //#else
 //            total_deposited += deposit_cic_yrange(NumPart, x, y, z,
@@ -762,26 +763,26 @@ void smooth_to_mesh(long long NumPart, float *smoothing_length,
 //#endif
 //
 //            
-//            /* Project this strip's 3D grid into the 2D output image.
-//             * project_strip_offset writes only to rows [strip_y0, strip_y1). */
-//            for (int iz = 0; iz < depth; iz++) {
-//                const grid_t *slice = strip_grid + (size_t)iz * this_strip_h * lw;
-//                for (int iy = 0; iy < this_strip_h; iy++) {
-//                    const grid_t *src = slice + (size_t)iy * lw;
-//                    float *dst = data + (size_t)(strip_y0 + iy) * width + lx_start;
-//                    for (int ix = 0; ix < lw; ix++)
-//                        dst[ix] += (float)src[ix];
-//                }
-//            }
-
-            free(strip_grid);
-
-            if (n_strips > 4) {
-                printf("  strip %d/%d done\n", strip + 1, n_strips);
-                fflush(stdout);
-            }
-        }
-        (void)total_deposited;
+////            /* Project this strip's 3D grid into the 2D output image.
+////             * project_strip_offset writes only to rows [strip_y0, strip_y1). */
+////            for (int iz = 0; iz < depth; iz++) {
+////                const grid_t *slice = strip_grid + (size_t)iz * this_strip_h * lw;
+////                for (int iy = 0; iy < this_strip_h; iy++) {
+////                    const grid_t *src = slice + (size_t)iy * lw;
+////                    float *dst = data + (size_t)(strip_y0 + iy) * width + lx_start;
+////                    for (int ix = 0; ix < lw; ix++)
+////                        dst[ix] += (float)src[ix];
+////                }
+////            }
+////
+////            free(strip_grid);
+////
+////            if (n_strips > 4) {
+////                printf("  strip %d/%d done\n", strip + 1, n_strips);
+////                fflush(stdout);
+////            }
+//        }
+//        (void)total_deposited;
     }
 
 #else  /* CIC_STRIP_HEIGHT == 0: original monolithic allocation */
