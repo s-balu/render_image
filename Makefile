@@ -111,6 +111,9 @@ ifeq ($(SYSTEM),Naranjo)
     HDF5_INCL := $(EBROOTHDF5)/include -DH5_USE_16_API
     HDF5_LIBS := $(EBROOTHDF5)/lib
     HDF5_OPTS := -lhdf5
+    YAML_INCL := 
+    YAML_LIBS := 
+    YAML_OPTS := -lyaml
 endif
 
 # ---------------------------------------------------------------------------
